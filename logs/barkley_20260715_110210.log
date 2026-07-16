@@ -1,0 +1,19 @@
+2026-07-15 11:02:10,070 - ============================================================
+2026-07-15 11:02:10,070 - Barkley Tracker 啟動
+2026-07-15 11:02:10,071 - Log 檔案：logs\barkley_20260715_110210.log
+2026-07-15 11:02:10,071 - ============================================================
+2026-07-15 11:02:20,283 - YOLO pose 模型：成功載入 OpenVINO 格式（優先使用 GPU，fallback CPU）
+2026-07-15 11:02:23,322 - 書籍分類模型：成功使用 Intel GPU (Xe)
+2026-07-15 11:02:35,309 - Pose: 0 persons | Book: no_book: 0.9946, book_1: 0.0014, book_2: 0.0013, book_3: 0.0027 | Sitting: N/A
+2026-07-15 11:02:38,455 - Pose: 0 persons | Book: no_book: 0.9933, book_1: 0.0018, book_2: 0.0014, book_3: 0.0035 | Sitting: N/A
+2026-07-15 11:02:41,576 - Pose: 0 persons | Book: no_book: 0.9927, book_1: 0.0019, book_2: 0.0014, book_3: 0.0041 | Sitting: N/A
+2026-07-15 11:02:44,691 - Pose: 0 persons | Book: no_book: 0.9880, book_1: 0.0034, book_2: 0.0027, book_3: 0.0059 | Sitting: N/A
+2026-07-15 11:02:47,798 - Pose: 0 persons | Book: no_book: 0.9953, book_1: 0.0013, book_2: 0.0008, book_3: 0.0025 | Sitting: N/A
+2026-07-15 11:02:50,876 - Pose: 0 persons | Book: no_book: 0.9935, book_1: 0.0018, book_2: 0.0014, book_3: 0.0033 | Sitting: N/A
+2026-07-15 11:02:53,943 - Pose: 0 persons | Book: no_book: 0.9902, book_1: 0.0027, book_2: 0.0022, book_3: 0.0049 | Sitting: N/A
+2026-07-15 11:02:57,123 - Pose: 0 persons | Book: no_book: 0.9940, book_1: 0.0018, book_2: 0.0010, book_3: 0.0032 | Sitting: N/A
+2026-07-15 11:03:00,129 - Pose: 0 persons | Book: no_book: 0.9883, book_1: 0.0032, book_2: 0.0026, book_3: 0.0060 | Sitting: N/A
+2026-07-15 11:03:03,137 - Pose: 0 persons | Book: no_book: 0.9915, book_1: 0.0025, book_2: 0.0018, book_3: 0.0042 | Sitting: N/A
+2026-07-15 11:03:06,320 - Pose: 0 persons | Book: no_book: 0.9906, book_1: 0.0026, book_2: 0.0018, book_3: 0.0051 | Sitting: N/A
+2026-07-15 11:03:09,486 - Pose: 0 persons | Book: no_book: 0.9943, book_1: 0.0015, book_2: 0.0010, book_3: 0.0032 | Sitting: N/A
+2026-07-15 11:03:12,626 - Pose: 0 persons | Book: no_book: 0.9930, book_1: 0.0019, book_2: 0.0015, book_3: 0.0037 | Sitting: N/A

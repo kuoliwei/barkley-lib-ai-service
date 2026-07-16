@@ -1,0 +1,46 @@
+2026-07-15 13:53:56,066 - ============================================================
+2026-07-15 13:53:56,067 - Barkley Tracker 啟動
+2026-07-15 13:53:56,067 - Log 檔案：logs\barkley_20260715_135356.log
+2026-07-15 13:53:56,067 - ============================================================
+2026-07-15 13:54:03,627 - YOLO pose 模型：成功載入 OpenVINO 格式（優先使用 GPU，由環境變數控制）
+2026-07-15 13:54:03,728 - 書籍分類 - OpenVINO 可用裝置: ['CPU', 'GPU']
+2026-07-15 13:54:03,736 - 書籍分類 - 設定裝置: CPU
+2026-07-15 13:54:03,790 - 書籍分類模型：✓ CPU 編譯成功，使用 CPU
+2026-07-15 13:54:04,227 - 幀採樣間隔: 1.0 秒
+2026-07-15 13:54:04,227 - YOLO pose ROI 初始位置: (420, 0)
+2026-07-15 13:54:04,246 - YOLO - OpenVINO 可用裝置: ['CPU', 'GPU']
+2026-07-15 13:54:04,246 - YOLO - 設定裝置: GPU
+2026-07-15 13:54:08,393 - YOLO - ✓ GPU.0 編譯成功，推論使用 Intel GPU (Iris Xe)
+2026-07-15 13:54:10,836 - Pose: 0 persons | Book: no_book: 0.9868, book_1: 0.0036, book_2: 0.0045, book_3: 0.0051 | Sitting: N/A
+2026-07-15 13:54:12,080 - Pose: 0 persons | Book: no_book: 0.9970, book_1: 0.0011, book_2: 0.0008, book_3: 0.0011 | Sitting: N/A
+2026-07-15 13:54:13,388 - Pose: 1 persons | Book: no_book: 0.9998, book_1: 0.0000, book_2: 0.0000, book_3: 0.0001 | Sitting: P0:not_sitting | Smoothed: not_sitting
+2026-07-15 13:54:14,656 - Pose: 1 persons | Book: no_book: 0.9959, book_1: 0.0012, book_2: 0.0008, book_3: 0.0020 | Sitting: P0:sitting | Smoothed: not_sitting
+2026-07-15 13:54:15,512 - Pose: 1 persons | Book: no_book: 0.9966, book_1: 0.0008, book_2: 0.0006, book_3: 0.0020 | Sitting: P0:sitting | Smoothed: sitting
+2026-07-15 13:54:15,895 - Pose: 1 persons | Book: no_book: 0.9909, book_1: 0.0022, book_2: 0.0018, book_3: 0.0052 | Sitting: P0:sitting | Smoothed: sitting
+2026-07-15 13:54:16,887 - Pose: 1 persons | Book: no_book: 0.9925, book_1: 0.0021, book_2: 0.0015, book_3: 0.0039 | Sitting: P0:not_sitting | Smoothed: sitting
+2026-07-15 13:54:17,908 - Pose: 1 persons | Book: no_book: 0.9891, book_1: 0.0029, book_2: 0.0025, book_3: 0.0055 | Sitting: P0:not_sitting | Smoothed: not_sitting
+2026-07-15 13:54:18,915 - Pose: 1 persons | Book: no_book: 0.9924, book_1: 0.0019, book_2: 0.0014, book_3: 0.0044 | Sitting: P0:not_sitting | Smoothed: not_sitting
+2026-07-15 13:54:19,939 - Pose: 1 persons | Book: no_book: 0.9900, book_1: 0.0023, book_2: 0.0022, book_3: 0.0055 | Sitting: P0:sitting | Smoothed: not_sitting
+2026-07-15 13:54:20,947 - Pose: 1 persons | Book: no_book: 0.9922, book_1: 0.0022, book_2: 0.0016, book_3: 0.0039 | Sitting: P0:not_sitting | Smoothed: not_sitting
+2026-07-15 13:54:21,970 - Pose: 0 persons | Book: no_book: 0.9873, book_1: 0.0031, book_2: 0.0027, book_3: 0.0070 | Sitting: N/A
+2026-07-15 13:54:22,983 - Pose: 0 persons | Book: no_book: 0.9948, book_1: 0.0013, book_2: 0.0010, book_3: 0.0030 | Sitting: N/A
+2026-07-15 13:54:24,018 - Pose: 1 persons | Book: no_book: 0.9929, book_1: 0.0019, book_2: 0.0015, book_3: 0.0038 | Sitting: P0:not_sitting | Smoothed: not_sitting
+2026-07-15 13:54:25,046 - Pose: 1 persons | Book: no_book: 0.9896, book_1: 0.0024, book_2: 0.0019, book_3: 0.0061 | Sitting: P0:sitting | Smoothed: not_sitting
+2026-07-15 13:54:26,053 - Pose: 1 persons | Book: no_book: 0.9914, book_1: 0.0020, book_2: 0.0015, book_3: 0.0051 | Sitting: P0:sitting | Smoothed: sitting
+2026-07-15 13:54:27,078 - Pose: 1 persons | Book: no_book: 0.9902, book_1: 0.0025, book_2: 0.0021, book_3: 0.0053 | Sitting: P0:not_sitting | Smoothed: sitting
+2026-07-15 13:54:28,084 - Pose: 1 persons | Book: no_book: 0.9908, book_1: 0.0020, book_2: 0.0017, book_3: 0.0055 | Sitting: P0:sitting | Smoothed: sitting
+2026-07-15 13:54:29,111 - Pose: 1 persons | Book: no_book: 0.9907, book_1: 0.0023, book_2: 0.0020, book_3: 0.0050 | Sitting: P0:not_sitting | Smoothed: not_sitting
+2026-07-15 13:54:30,117 - Pose: 1 persons | Book: no_book: 0.9985, book_1: 0.0003, book_2: 0.0000, book_3: 0.0011 | Sitting: P0:not_sitting | Smoothed: not_sitting
+2026-07-15 13:54:31,138 - Pose: 1 persons | Book: no_book: 0.9955, book_1: 0.0026, book_2: 0.0002, book_3: 0.0017 | Sitting: P0:not_sitting | Smoothed: not_sitting
+2026-07-15 13:54:32,149 - Pose: 1 persons | Book: no_book: 0.9996, book_1: 0.0003, book_2: 0.0000, book_3: 0.0001 | Sitting: P0:not_sitting | Smoothed: not_sitting
+2026-07-15 13:54:33,173 - Pose: 1 persons | Book: no_book: 0.9911, book_1: 0.0022, book_2: 0.0001, book_3: 0.0067 | Sitting: P0:not_sitting | Smoothed: not_sitting
+2026-07-15 13:54:34,195 - Pose: 1 persons | Book: no_book: 0.9909, book_1: 0.0064, book_2: 0.0001, book_3: 0.0026 | Sitting: P0:not_sitting | Smoothed: not_sitting
+2026-07-15 13:54:35,193 - Pose: 1 persons | Book: no_book: 0.9945, book_1: 0.0033, book_2: 0.0001, book_3: 0.0021 | Sitting: P0:not_sitting | Smoothed: not_sitting
+2026-07-15 13:54:36,217 - Pose: 1 persons | Book: no_book: 0.9973, book_1: 0.0011, book_2: 0.0000, book_3: 0.0016 | Sitting: P0:not_sitting | Smoothed: not_sitting
+2026-07-15 13:54:37,222 - Pose: 1 persons | Book: no_book: 0.9929, book_1: 0.0019, book_2: 0.0001, book_3: 0.0051 | Sitting: P0:not_sitting | Smoothed: not_sitting
+2026-07-15 13:54:38,252 - Pose: 1 persons | Book: no_book: 0.9932, book_1: 0.0034, book_2: 0.0001, book_3: 0.0033 | Sitting: P0:not_sitting | Smoothed: not_sitting
+2026-07-15 13:54:39,257 - Pose: 1 persons | Book: no_book: 0.9961, book_1: 0.0020, book_2: 0.0004, book_3: 0.0016 | Sitting: P0:not_sitting | Smoothed: not_sitting
+2026-07-15 13:54:40,277 - Pose: 1 persons | Book: no_book: 0.9891, book_1: 0.0030, book_2: 0.0024, book_3: 0.0056 | Sitting: P0:sitting | Smoothed: not_sitting
+2026-07-15 13:54:41,292 - Pose: 1 persons | Book: no_book: 0.9908, book_1: 0.0025, book_2: 0.0019, book_3: 0.0047 | Sitting: P0:sitting | Smoothed: sitting
+2026-07-15 13:54:42,326 - Pose: 1 persons | Book: no_book: 0.9970, book_1: 0.0008, book_2: 0.0005, book_3: 0.0017 | Sitting: P0:sitting | Smoothed: sitting
+2026-07-15 13:54:43,337 - Pose: 1 persons | Book: no_book: 0.9940, book_1: 0.0017, book_2: 0.0012, book_3: 0.0031 | Sitting: P0:not_sitting | Smoothed: sitting

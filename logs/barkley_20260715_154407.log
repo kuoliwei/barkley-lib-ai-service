@@ -1,0 +1,34 @@
+2026-07-15 15:44:07,997 - ============================================================
+2026-07-15 15:44:07,997 - Barkley Tracker 啟動
+2026-07-15 15:44:07,998 - Log 檔案：logs\barkley_20260715_154407.log
+2026-07-15 15:44:07,998 - ============================================================
+2026-07-15 15:44:15,147 - YOLO pose 模型：成功載入 OpenVINO 格式（優先使用 GPU，由環境變數控制）
+2026-07-15 15:44:15,244 - 書籍分類 - OpenVINO 可用裝置: ['CPU', 'GPU']
+2026-07-15 15:44:15,251 - 書籍分類 - 設定裝置: CPU
+2026-07-15 15:44:15,307 - 書籍分類模型：✓ CPU 編譯成功，使用 CPU
+2026-07-15 15:44:15,738 - 幀採樣間隔: 1.0 秒
+2026-07-15 15:44:15,738 - YOLO pose ROI 初始位置: (420, 0)
+2026-07-15 15:44:15,758 - YOLO - OpenVINO 可用裝置: ['CPU', 'GPU']
+2026-07-15 15:44:15,758 - YOLO - 設定裝置: GPU
+2026-07-15 15:44:20,241 - YOLO - ✓ GPU.0 編譯成功，推論使用 Intel GPU (Iris Xe)
+2026-07-15 15:44:22,639 - Pose: 1 persons | Book: no_book: 0.9948, book_1: 0.0014, book_2: 0.0010, book_3: 0.0028 | Sitting: P0:sitting | Smoothed: sitting
+2026-07-15 15:44:24,041 - Pose: 1 persons | Book: no_book: 0.9954, book_1: 0.0011, book_2: 0.0009, book_3: 0.0026 | Sitting: P0:sitting | Smoothed: sitting
+2026-07-15 15:44:25,293 - Pose: 1 persons | Book: no_book: 0.9919, book_1: 0.0021, book_2: 0.0016, book_3: 0.0044 | Sitting: P0:sitting | Smoothed: sitting
+2026-07-15 15:44:26,617 - Pose: 1 persons | Book: no_book: 0.9950, book_1: 0.0013, book_2: 0.0009, book_3: 0.0028 | Sitting: P0:sitting | Smoothed: sitting
+2026-07-15 15:44:27,408 - Pose: 1 persons | Book: no_book: 0.9909, book_1: 0.0024, book_2: 0.0018, book_3: 0.0048 | Sitting: P0:sitting | Smoothed: sitting
+2026-07-15 15:44:27,829 - Pose: 1 persons | Book: no_book: 0.9943, book_1: 0.0015, book_2: 0.0011, book_3: 0.0031 | Sitting: P0:sitting | Smoothed: sitting
+2026-07-15 15:44:28,832 - Pose: 1 persons | Book: no_book: 0.9961, book_1: 0.0010, book_2: 0.0006, book_3: 0.0022 | Sitting: P0:sitting | Smoothed: sitting
+2026-07-15 15:44:29,863 - Pose: 1 persons | Book: no_book: 0.9940, book_1: 0.0015, book_2: 0.0010, book_3: 0.0035 | Sitting: P0:sitting | Smoothed: sitting
+2026-07-15 15:44:30,862 - Pose: 1 persons | Book: no_book: 0.9959, book_1: 0.0011, book_2: 0.0007, book_3: 0.0023 | Sitting: P0:sitting | Smoothed: sitting
+2026-07-15 15:44:31,900 - Pose: 1 persons | Book: no_book: 0.9914, book_1: 0.0023, book_2: 0.0018, book_3: 0.0045 | Sitting: P0:sitting | Smoothed: sitting
+2026-07-15 15:44:32,926 - Pose: 1 persons | Book: no_book: 0.9930, book_1: 0.0018, book_2: 0.0014, book_3: 0.0039 | Sitting: P0:sitting | Smoothed: sitting
+2026-07-15 15:44:33,936 - Pose: 1 persons | Book: no_book: 0.9925, book_1: 0.0019, book_2: 0.0017, book_3: 0.0038 | Sitting: P0:sitting | Smoothed: sitting
+2026-07-15 15:44:34,959 - Pose: 1 persons | Book: no_book: 0.9945, book_1: 0.0015, book_2: 0.0010, book_3: 0.0030 | Sitting: P0:sitting | Smoothed: sitting
+2026-07-15 15:44:35,970 - Pose: 1 persons | Book: no_book: 0.9937, book_1: 0.0016, book_2: 0.0013, book_3: 0.0034 | Sitting: P0:sitting | Smoothed: sitting
+2026-07-15 15:44:36,991 - Pose: 1 persons | Book: no_book: 0.9919, book_1: 0.0021, book_2: 0.0017, book_3: 0.0044 | Sitting: P0:sitting | Smoothed: sitting
+2026-07-15 15:44:38,005 - Pose: 1 persons | Book: no_book: 0.9940, book_1: 0.0018, book_2: 0.0012, book_3: 0.0030 | Sitting: P0:sitting | Smoothed: sitting
+2026-07-15 15:44:39,024 - Pose: 1 persons | Book: no_book: 0.9941, book_1: 0.0015, book_2: 0.0011, book_3: 0.0032 | Sitting: P0:sitting | Smoothed: sitting
+2026-07-15 15:44:40,059 - Pose: 1 persons | Book: no_book: 0.9962, book_1: 0.0009, book_2: 0.0007, book_3: 0.0021 | Sitting: P0:sitting | Smoothed: sitting
+2026-07-15 15:44:41,065 - Pose: 1 persons | Book: no_book: 0.9907, book_1: 0.0022, book_2: 0.0018, book_3: 0.0053 | Sitting: P0:sitting | Smoothed: sitting
+2026-07-15 15:44:42,070 - Pose: 1 persons | Book: no_book: 0.9916, book_1: 0.0022, book_2: 0.0017, book_3: 0.0046 | Sitting: P0:sitting | Smoothed: sitting
+2026-07-15 15:44:43,117 - Pose: 1 persons | Book: no_book: 0.9950, book_1: 0.0012, book_2: 0.0009, book_3: 0.0028 | Sitting: P0:sitting | Smoothed: sitting
