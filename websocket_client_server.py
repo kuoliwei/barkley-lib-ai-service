@@ -10,8 +10,10 @@ from queue import Queue
 import cv2
 import websockets
 
-from barkley_openvino import BarkleyTracker, setup_logging, open_camera
 from pose_detector import reset_body_scale_history
+
+# 推論後端在 main 依 --backend 動態載入（barkley_openvino 或 barkley_cuda），
+# 兩者對外介面一致（BarkleyTracker / setup_logging / open_camera）
 
 
 # ============================================================
@@ -28,11 +30,13 @@ BOOK_ROI_SIZE = 224        # 書籍分類 ROI 邊長
 
 
 class BarkleyWebSocketClient:
-    def __init__(self, uri, camera_index,
+    def __init__(self, uri, camera_index, backend,
                  pose_roi_cx=POSE_ROI_CENTER_X, pose_roi_cy=POSE_ROI_CENTER_Y,
                  book_roi_cx=BOOK_ROI_CENTER_X, book_roi_cy=BOOK_ROI_CENTER_Y):
         self.uri = uri
         self.camera_index = camera_index
+        # 推論後端模組（barkley_openvino 或 barkley_cuda）
+        self.backend = backend
         # ROI 中心點（pose 為 None 表示啟動時置中於畫面中央）
         self.pose_roi_cx = pose_roi_cx
         self.pose_roi_cy = pose_roi_cy
@@ -46,15 +50,16 @@ class BarkleyWebSocketClient:
         self.result_queue = Queue()
 
     def setup(self):
-        log_file = setup_logging()
+        log_file = self.backend.setup_logging()
         logging.info("=" * 60)
         logging.info("Barkley WebSocket Client 啟動")
         logging.info(f"Log 檔案：{log_file}")
+        logging.info(f"推論後端：{self.backend.__name__}")
         logging.info(f"連接伺服器：{self.uri}")
         logging.info("=" * 60)
 
-        self.tracker = BarkleyTracker()
-        self.cap = open_camera(self.camera_index)
+        self.tracker = self.backend.BarkleyTracker()
+        self.cap = self.backend.open_camera(self.camera_index)
 
         if self.cap is None:
             logging.error(f"無法打開攝像頭 {self.camera_index}")
@@ -326,6 +331,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Barkley WebSocket Client - 連接 Unity Server")
     parser.add_argument("--server", default="ws://localhost:8888/Chat", help="WebSocket 伺服器地址（預設: ws://localhost:8888/Chat）")
     parser.add_argument("--camera", type=int, default=0, help="攝像頭索引（預設: 0 = Elgato Facecam）")
+    parser.add_argument("--backend", choices=["openvino", "cuda"], default="openvino", help="推論後端（預設: openvino）")
     parser.add_argument("--inference-interval", type=float, default=1.0, help="推論間隔（秒）（預設: 1.0）")
     parser.add_argument("--pose-roi-x", type=int, default=POSE_ROI_CENTER_X, help="人體姿態 ROI 中心 X（預設: 畫面置中）")
     parser.add_argument("--pose-roi-y", type=int, default=POSE_ROI_CENTER_Y, help="人體姿態 ROI 中心 Y（預設: 畫面置中）")
@@ -333,9 +339,16 @@ if __name__ == "__main__":
     parser.add_argument("--book-roi-y", type=int, default=BOOK_ROI_CENTER_Y, help=f"書籍 ROI 中心 Y（預設: {BOOK_ROI_CENTER_Y}）")
     args = parser.parse_args()
 
+    # 依 --backend 動態載入推論後端模組
+    if args.backend == "cuda":
+        import barkley_cuda as backend
+    else:
+        import barkley_openvino as backend
+
     client = BarkleyWebSocketClient(
         uri=args.server,
         camera_index=args.camera,
+        backend=backend,
         pose_roi_cx=args.pose_roi_x,
         pose_roi_cy=args.pose_roi_y,
         book_roi_cx=args.book_roi_x,
