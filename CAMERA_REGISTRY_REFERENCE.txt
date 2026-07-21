@@ -1,0 +1,163 @@
+================================================================================
+DirectShow Camera FriendlyName - Windows Registry Reference
+================================================================================
+
+PROBLEM:
+  Get DirectShow camera FriendlyName that matches Windows Camera app display
+  (e.g., "Logitech BRIO", "Elgato Facecam MK.2 (USB2)")
+
+SOLUTION - CORRECT REGISTRY PATH:
+  HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\Class\{6bdd1fc6-810f-11d0-bec7-08002be2092f}
+
+REGISTRY VALUE:
+  Location: Numeric subkeys (0000, 0001, 0002, ...)
+  Value Name: DriverDesc
+  Content: Camera friendly name
+
+WRONG PATH (Original attempt - does NOT work):
+  ❌ HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\DeviceClasses\{6bdd1fc6-810f-11d0-bec7-08002be2092f}
+  (This contains physical devices, not driver info)
+
+================================================================================
+IMPLEMENTATION METHODS
+================================================================================
+
+METHOD 1: PowerShell (Recommended for Windows Projects)
+---
+
+$classGUID = "{6bdd1fc6-810f-11d0-bec7-08002be2092f}"
+$classPath = "Registry::HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\Class\$classGUID"
+
+$cameras = @()
+
+if (Test-Path $classPath) {
+    Get-ChildItem $classPath -ErrorAction SilentlyContinue | ForEach-Object {
+        if ($_.PSChildName -match '^\d{4}$') {
+            $props = Get-ItemProperty $_.PSPath -ErrorAction SilentlyContinue
+            if ($props.DriverDesc) {
+                $cameras += $props.DriverDesc
+            }
+        }
+    }
+}
+
+$cameras | ForEach-Object { Write-Host $_ }
+
+---
+
+METHOD 2: Python with winreg (Pure Python, No PowerShell)
+---
+
+import winreg
+
+def list_cameras():
+    cameras = []
+    class_guid = r"SYSTEM\CurrentControlSet\Control\Class\{6bdd1fc6-810f-11d0-bec7-08002be2092f}"
+
+    try:
+        with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, class_guid) as key:
+            index = 0
+            while True:
+                try:
+                    subkey_name = winreg.EnumKey(key, index)
+                    if subkey_name.isdigit() and len(subkey_name) == 4:
+                        with winreg.OpenKey(key, subkey_name) as subkey:
+                            try:
+                                driver_desc, _ = winreg.QueryValueEx(subkey, "DriverDesc")
+                                if driver_desc:
+                                    cameras.append(driver_desc)
+                            except FileNotFoundError:
+                                pass
+                    index += 1
+                except OSError:
+                    break
+    except Exception as e:
+        print(f"Error: {e}")
+
+    return cameras
+
+---
+
+METHOD 3: Python with subprocess (PowerShell from Python)
+---
+
+import subprocess
+
+ps_command = r"""
+$classGUID = "{6bdd1fc6-810f-11d0-bec7-08002be2092f}"
+$classPath = "Registry::HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\Class\$classGUID"
+
+$cameras = @()
+
+if (Test-Path $classPath) {
+    Get-ChildItem $classPath -ErrorAction SilentlyContinue | ForEach-Object {
+        if ($_.PSChildName -match '^\d{4}$') {
+            $props = Get-ItemProperty $_.PSPath -ErrorAction SilentlyContinue
+            if ($props.DriverDesc) {
+                $cameras += $props.DriverDesc
+            }
+        }
+    }
+}
+
+$cameras | ForEach-Object { Write-Host $_ }
+"""
+
+result = subprocess.run(['powershell', '-Command', ps_command],
+                       capture_output=True, text=True, timeout=10)
+cameras = [line.strip() for line in result.stdout.strip().split('\n') if line.strip()]
+
+---
+
+================================================================================
+TEST RESULTS
+================================================================================
+
+Tested on: Windows 11 Pro
+Camera: Logitech BRIO
+
+Method 1 (PowerShell):     ✓ SUCCESS - Found "Logitech BRIO"
+Method 2 (winreg):          ✓ SUCCESS - Found "Logitech BRIO"
+Method 3 (subprocess):      ✓ SUCCESS - Found "Logitech BRIO"
+
+Original Method:            ✗ FAILED - Wrong registry path
+
+================================================================================
+IMPORTANT NOTES
+================================================================================
+
+1. REGISTRY ORDER vs OPENCV INDEX
+   - Registry order may NOT match OpenCV camera index order
+   - OpenCV uses DirectShow's device enumeration order
+   - For reliable mapping, use device VID/PID to correlate
+
+2. PERMISSIONS
+   - No administrator privileges needed
+   - All users can read this registry path
+
+3. THE GUID
+   - {6bdd1fc6-810f-11d0-bec7-08002be2092f} = DirectShow Video Capture Devices
+   - This is the standard Windows GUID for video capture
+
+4. REGISTRY VALUES
+   - DriverDesc: Friendly name from driver (matches Windows Camera app)
+   - FriendlyName: User-assigned name (often empty)
+   - DeviceDesc: Generic description (e.g., "USB Video Device")
+
+================================================================================
+FILES
+================================================================================
+
+Updated:
+  C:\Users\liweikuo\barkley\list_cameras.py
+  (Now uses correct registry path with PowerShell method)
+
+Reference:
+  C:\Users\liweikuo\AppData\Local\Temp\claude\c--Users-liweikuo-barkley\f16c5964-01a3-4199-86f5-5c406935403c\scratchpad\list_cameras_winreg.py
+  (Pure Python implementation using winreg)
+
+Tests:
+  C:\Users\liweikuo\AppData\Local\Temp\claude\c--Users-liweikuo-barkley\f16c5964-01a3-4199-86f5-5c406935403c\scratchpad\test_cameras_solution.py
+  (Compares all 4 methods)
+
+================================================================================

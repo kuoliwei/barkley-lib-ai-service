@@ -1,27 +1,26 @@
 import os
-# 設定 OpenVINO 優先使用 GPU
-os.environ['OPENVINO_DEVICE_PRIORITIES'] = 'GPU,CPU'
 
 import cv2
 import numpy as np
+import torch
+import torch.nn as nn
 from ultralytics import YOLO
+from torchvision.models import resnet18
 from torchvision import transforms
 import json
 import logging
 from collections import deque
 from datetime import datetime
 from pose_detector import is_sitting_pose
-from openvino.runtime import Core
 
 
-YOLO_OV_MODEL = "yolo11x-pose_openvino_model"
-BOOK_OV_XML = "barkley_book_v3.xml"
+YOLO_PT_MODEL = "yolo11x-pose.pt"
+BOOK_PTH_MODEL = "barkley_book_v3.pth"
 
 # ============================================================
-# 推論裝置設定（可自由修改）
+# 推論裝置設定（CUDA 版本）
 # ============================================================
-YOLO_POSE_DEVICE = "GPU"      # YOLO 人體姿態推論：'GPU' 或 'CPU'
-BOOK_CLASS_DEVICE = "CPU"     # 書籍分類推論：'GPU' 或 'CPU'
+DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 # ============================================================
 
 # ============================================================
@@ -58,6 +57,7 @@ SMOOTH_WINDOW = 3             # 取最近 N 次推論的多數決作為顯示結
                               # 1 表示不平滑
 # ============================================================
 
+
 # 設定 logging
 def setup_logging():
     log_dir = "logs"
@@ -78,24 +78,23 @@ def setup_logging():
 
 def _check_models():
     missing = []
-    if not os.path.exists(YOLO_OV_MODEL):
-        missing.append(f"  - {YOLO_OV_MODEL}/  (YOLO pose 模型)")
-    if not os.path.exists(BOOK_OV_XML):
-        missing.append(f"  - {BOOK_OV_XML}  (書籍分類模型)")
+    if not os.path.exists(YOLO_PT_MODEL):
+        missing.append(f"  - {YOLO_PT_MODEL}  (YOLO pose 模型)")
+    if not os.path.exists(BOOK_PTH_MODEL):
+        missing.append(f"  - {BOOK_PTH_MODEL}  (書籍分類模型)")
     if missing:
-        print("找不到 OpenVINO 模型檔，請先執行轉換腳本：")
-        print("  python export_openvino.py")
-        print("缺少的檔案：")
+        print("找不到 PyTorch 模型檔：")
         for m in missing:
             print(m)
-        raise FileNotFoundError("OpenVINO 模型不存在")
+        raise FileNotFoundError("PyTorch 模型不存在")
 
 
 class BarkleyTracker:
     def __init__(self):
         _check_models()
+        self.device = DEVICE
         self._load_yolo_model()
-        self.book_compiled = self._load_book_model()
+        self.book_model = self._load_book_model()
         self.preprocess = transforms.Compose([
             transforms.ToTensor(),
             transforms.Normalize(mean=[0.485, 0.456, 0.406],
@@ -106,76 +105,22 @@ class BarkleyTracker:
 
     def _load_yolo_model(self):
         try:
-            self.yolo_pose = YOLO(YOLO_OV_MODEL, task="pose")
-            logging.info("YOLO pose 模型：成功載入 OpenVINO 格式（優先使用 GPU，由環境變數控制）")
-            self.yolo_first_run = True  # 用來在首次推論時檢查裝置
+            self.yolo_pose = YOLO(YOLO_PT_MODEL, task="pose")
+            logging.info(f"YOLO pose 模型：成功載入 PyTorch 格式（推論裝置：{self.device.upper()}）")
         except Exception as e:
             logging.error(f"YOLO pose 模型載入失敗：{e}")
             raise
 
-    def _check_yolo_device(self):
-        """在首次推論時檢查 YOLO 是否真的用了設定的裝置"""
-        if not self.yolo_first_run:
-            return
-        self.yolo_first_run = False
-
-        try:
-            ie = Core()
-            available = ie.available_devices
-            logging.info(f"YOLO - OpenVINO 可用裝置: {available}")
-            logging.info(f"YOLO - 設定裝置: {YOLO_POSE_DEVICE}")
-
-            # 根據設定驗證裝置
-            target_device = "GPU.0" if YOLO_POSE_DEVICE.upper() == "GPU" else "CPU"
-
-            if target_device == "GPU.0" and "GPU" not in available:
-                logging.warning("YOLO - GPU 不可用，改用 CPU")
-                target_device = "CPU"
-
-            try:
-                xml_path = YOLO_OV_MODEL + "/yolo11x-pose.xml"
-                test_model = ie.read_model(xml_path)
-                ie.compile_model(test_model, target_device)
-                if target_device == "GPU.0":
-                    logging.info("YOLO - ✓ GPU.0 編譯成功，推論使用 Intel GPU (Iris Xe)")
-                else:
-                    logging.info("YOLO - ✓ CPU 編譯成功，推論使用 CPU")
-            except Exception as err:
-                logging.warning(f"YOLO - {target_device} 編譯失敗: {err}，改用 CPU")
-                # 嘗試編譯至 CPU
-                test_model = ie.read_model(xml_path)
-                ie.compile_model(test_model, "CPU")
-                logging.info("YOLO - ✓ CPU 編譯成功，推論使用 CPU")
-        except Exception as e:
-            logging.warning(f"YOLO - 無法檢查裝置信息: {e}")
-
     def _load_book_model(self):
-        ie = Core()
-        available_devices = ie.available_devices
-        logging.info(f"書籍分類 - OpenVINO 可用裝置: {available_devices}")
-
-        model = ie.read_model(BOOK_OV_XML)
-        logging.info(f"書籍分類 - 設定裝置: {BOOK_CLASS_DEVICE}")
-
-        # 根據設定使用 GPU 或 CPU
-        target_device = "GPU.0" if BOOK_CLASS_DEVICE.upper() == "GPU" else "CPU"
-
-        if target_device == "GPU.0" and "GPU" not in available_devices:
-            logging.warning(f"書籍分類模型：GPU 不可用，改用 CPU")
-            target_device = "CPU"
-
-        try:
-            compiled = ie.compile_model(model, target_device)
-            if target_device == "GPU.0":
-                logging.info("書籍分類模型：✓ GPU.0 編譯成功，使用 Intel GPU (Iris Xe)")
-            else:
-                logging.info("書籍分類模型：✓ CPU 編譯成功，使用 CPU")
-            return compiled
-        except Exception as e:
-            logging.warning(f"書籍分類模型：{target_device} 編譯失敗 ({e})，改用 CPU")
-            compiled = ie.compile_model(model, "CPU")
-            logging.info("書籍分類模型：✓ CPU 編譯成功，使用 CPU")
-            return compiled
+        logging.info(f"書籍分類 - 推論裝置: {self.device.upper()}")
+        model = resnet18(weights=None)
+        model.fc = nn.Linear(512, 4)
+        state_dict = torch.load(BOOK_PTH_MODEL, map_location="cpu")
+        model.load_state_dict(state_dict)
+        model.eval()
+        model.to(self.device)
+        logging.info(f"書籍分類模型：✓ 成功載入並移至 {self.device.upper()}")
+        return model
 
     def draw_keypoints(self, frame, keypoints, pose_roi_x, pose_roi_y, roi_size=224):
         if keypoints is None or keypoints.xy is None:
@@ -227,18 +172,14 @@ class BarkleyTracker:
     def classify_book(self, roi):
         from PIL import Image
         roi_pil = Image.fromarray(cv2.cvtColor(roi, cv2.COLOR_BGR2RGB))
-        input_tensor = self.preprocess(roi_pil).unsqueeze(0).numpy()
+        input_tensor = self.preprocess(roi_pil).unsqueeze(0).to(self.device)
 
-        infer_request = self.book_compiled.create_infer_request()
-        infer_request.infer({0: input_tensor})
-        output = infer_request.get_output_tensor(0).data
-
-        # softmax
-        exp_out = np.exp(output - output.max())
-        probabilities = exp_out / exp_out.sum()
-        predicted_class = int(probabilities.argmax())
-        confidence = float(probabilities[0, predicted_class])
-        all_probs = probabilities[0]
+        with torch.no_grad():
+            output = self.book_model(input_tensor)
+            probabilities = torch.softmax(output, dim=1)
+            predicted_class = int(output.argmax(dim=1).item())
+            confidence = float(probabilities[0, predicted_class].item())
+            all_probs = probabilities[0].cpu().numpy()
 
         return predicted_class, confidence, all_probs
 
@@ -254,11 +195,8 @@ class BarkleyTracker:
         # 保留未畫骨架的原始 ROI，供 C/V 鍵存檔驗證用（pose_roi 是 frame 的 view，畫圖後會被污染）
         pose_roi_snapshot = pose_roi.copy()
 
-        # 首次推論時檢查是否真的用了 GPU
-        self._check_yolo_device()
-
-        # 不傳 device 參數，由環境變數控制
-        results = self.yolo_pose(pose_roi, verbose=False)
+        # 指定裝置推論（CUDA / CPU）
+        results = self.yolo_pose(pose_roi, verbose=False, device=self.device)
 
         num_persons = 0
         keypoints_data = []
@@ -536,28 +474,6 @@ def run_tracker_in_yolo(cap, output_dir=None, book_roi_x=100, book_roi_y=428, po
 
             # 每次推論時列印結果
             if should_infer and book_data is not None:
-                # ============ 舊版 logging（已註解）============
-                # book_names_print = ['no_book', 'book_1', 'book_2', 'book_3']
-                # probs_str = ", ".join([f"{name}: {prob:.4f}" for name, prob in zip(book_names_print, book_data['all_probs'])])
-                #
-                # sitting_str = ""
-                # if book_data['is_sitting']:
-                #     sitting_results = []
-                #     for i, is_sitting in enumerate(book_data['is_sitting']):
-                #         status = "sitting" if is_sitting else "not_sitting"
-                #         sitting_results.append(f"P{i}:{status}")
-                #     sitting_str = " | Sitting: " + ", ".join(sitting_results)
-                #     smoothed = book_data.get('is_sitting_smoothed')
-                #     if smoothed is not None:
-                #         sitting_str += f" | Smoothed: {'sitting' if smoothed else 'not_sitting'}"
-                # else:
-                #     sitting_str = " | Sitting: N/A"
-                #
-                # log_msg = f"Pose: {book_data['num_persons']} persons | Book: {probs_str}{sitting_str}"
-                # logging.info(log_msg)
-                # ================================================
-
-                # ============ 新版簡化 logging ============
                 status_str = ""
                 if book_data['status_list']:
                     status_results = []
@@ -572,32 +488,12 @@ def run_tracker_in_yolo(cap, output_dir=None, book_roi_x=100, book_roi_y=428, po
 
                 log_msg = f"Pose:{status_str}"
                 logging.info(log_msg)
-                # =========================================
-
-                # 每次推論自動存檔（累積連續樣本供離線分析）
-                # if AUTO_SAVE_LABEL and book_data['keypoints'] and output_dir:
-                #     save_pose_json(book_data['keypoints'], output_dir=output_dir, label=AUTO_SAVE_LABEL,
-                #                    roi_image=book_data.get('pose_roi_image'))
 
             cv2.imshow('Book Recognition', frame_with_results)
 
             key = cv2.waitKey(1) & 0xFF
             if key == ord('q'):
                 break
-            # elif key == ord('c') or key == ord('C'):
-            #     # C 鍵：標註「我現在是坐著」存檔（供離線驗證）
-            #     if book_data['keypoints'] and output_dir:
-            #         save_pose_json(book_data['keypoints'], output_dir=output_dir, label="sitting",
-            #                        roi_image=book_data.get('pose_roi_image'))
-            #     else:
-            #         print("No pose data to save")
-            # elif key == ord('v') or key == ord('V'):
-            #     # V 鍵：標註「我現在是站著」存檔（供離線驗證）
-            #     if book_data['keypoints'] and output_dir:
-            #         save_pose_json(book_data['keypoints'], output_dir=output_dir, label="standing",
-            #                        roi_image=book_data.get('pose_roi_image'))
-            #     else:
-            #         print("No pose data to save")
             elif key == 9:  # TAB
                 active_roi = "pose" if active_roi == "book" else "book"
                 print(f"Switched to {active_roi.upper()} ROI")
@@ -629,28 +525,32 @@ def run_tracker_in_yolo(cap, output_dir=None, book_roi_x=100, book_roi_y=428, po
 
 if __name__ == "__main__":
     import argparse
-    parser = argparse.ArgumentParser(description="Barkley Tracker (WebCam)")
+    parser = argparse.ArgumentParser(description="Barkley Tracker CUDA (WebCam)")
     parser.add_argument("--output", default=None, help="輸出資料夾名稱（相對於根目錄，未指定則不存檔）")
     parser.add_argument("--camera", type=int, default=1, help="相機索引（預設：1）")
     args = parser.parse_args()
 
     log_file = setup_logging()
     logging.info("=" * 60)
-    logging.info("Barkley Tracker 啟動")
+    logging.info("Barkley Tracker (CUDA) 啟動")
     logging.info(f"Log 檔案：{log_file}")
+    logging.info(f"推論裝置：{DEVICE.upper()}")
+    if not torch.cuda.is_available():
+        logging.warning("CUDA 不可用，改用 CPU 推論")
+    else:
+        logging.info(f"CUDA 裝置：{torch.cuda.get_device_name(0)}")
     if args.output:
         logging.info(f"輸出資料夾：{args.output}")
     else:
         logging.info("模式：不存檔（只顯示 console log）")
     logging.info("=" * 60)
 
-    # list_all_cameras()
     cap = open_camera(args.camera)
     if cap is not None:
         run_tracker_in_yolo(cap, output_dir=args.output)
     else:
-        logging.error("Unable to open camera at index 1")
+        logging.error(f"Unable to open camera at index {args.camera}")
 
     logging.info("=" * 60)
-    logging.info("Barkley Tracker 已關閉")
+    logging.info("Barkley Tracker (CUDA) 已關閉")
     logging.info("=" * 60)

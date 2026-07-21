@@ -114,58 +114,36 @@ def convert_yolo_result_to_persons(yolo_result, box_confidence=None):
 
     return persons if persons else None
 
-def check_lower_body_confidence(person):
-    """
-    檢查下半身關鍵點信心度
-    下半身：髖關節(hip)、膝蓋(knee)、腳踝(ankle)
-
-    回傳 True 如果超過一半信心度低於 0.5
-    """
-    lower_body_parts = ['left_hip', 'right_hip', 'left_knee', 'right_knee', 'left_ankle', 'right_ankle']
-
-    keypoints_dict = {kp["name"]: kp["confidence"] for kp in person["keypoints"]}
-
-    low_conf_count = sum(1 for part in lower_body_parts if keypoints_dict.get(part, 0) < 0.5)
-    total_lower_parts = len(lower_body_parts)
-
-    return low_conf_count > total_lower_parts / 2
 
 def analyze_and_save_image(image_path, yolo_model, output_dir):
     """
     分析單張圖片並保存 JSON
 
-    回傳 (success, message, lower_body_warning)
+    回傳 (success, message)
     """
     try:
         # 讀取圖片
         frame = cv2.imread(image_path)
         if frame is None:
-            return False, f"無法讀取圖片", False
+            return False, f"無法讀取圖片"
 
         # YOLO 推論
         yolo_results = yolo_model(frame, verbose=False)
         if not yolo_results or len(yolo_results) == 0:
-            return False, "YOLO 未偵測到人物", False
+            return False, "YOLO 未偵測到人物"
 
         yolo_result = yolo_results[0]
 
         # 轉換為 JSON 格式
         persons = convert_yolo_result_to_persons(yolo_result)
         if persons is None:
-            return False, "無法轉換關鍵點", False
+            return False, "無法轉換關鍵點"
 
-        # 檢查下半身信心度警告
-        has_lower_body_warning = False
+        # 對每個人做姿態判定 + 附加 sitting_detection
         for person in persons:
-            if check_lower_body_confidence(person):
-                has_lower_body_warning = True
-                break
-
-        # 對每個人做坐姿判定 + 附加 sitting_detection
-        for person in persons:
-            is_sitting, debug_info = is_sitting_pose(person, verbose=False, return_debug=True)
+            status, debug_info = is_sitting_pose(person, verbose=False, return_debug=True)
             person["sitting_detection"] = {
-                "is_sitting": is_sitting,
+                "status": status,
                 "debug": debug_info
             }
 
@@ -188,12 +166,17 @@ def analyze_and_save_image(image_path, yolo_model, output_dir):
         with open(output_path, 'w', encoding='utf-8') as f:
             json.dump(json_data, f, indent=2, ensure_ascii=False)
 
-        # 統計坐姿判定結果
-        sitting_count = sum(1 for p in persons if p["sitting_detection"]["is_sitting"])
-        return True, f"{len(persons)} 人 ({sitting_count} 坐, {len(persons) - sitting_count} 站)", has_lower_body_warning
+        # 統計姿態判定結果
+        status_counts = {}
+        for p in persons:
+            status = p["sitting_detection"]["status"]
+            status_counts[status] = status_counts.get(status, 0) + 1
+
+        status_str = ", ".join(f"{status}:{count}" for status, count in sorted(status_counts.items()))
+        return True, f"{len(persons)} 人 ({status_str})"
 
     except Exception as e:
-        return False, f"處理失敗: {str(e)}", False
+        return False, f"處理失敗: {str(e)}"
 
 def main():
     import argparse
@@ -249,7 +232,7 @@ def main():
         failed = 0
 
         for image_path in image_files:
-            is_ok, msg, lower_body_warning = analyze_and_save_image(image_path, yolo_model, image_dir)
+            is_ok, msg = analyze_and_save_image(image_path, yolo_model, image_dir)
             total_images += 1
 
             status = "✓" if is_ok else "✗"
@@ -258,8 +241,7 @@ def main():
             if is_ok:
                 success += 1
                 total_success += 1
-                warning_text = "  下半身信心度過低" if lower_body_warning else ""
-                logging.info(f"{status} {basename:<20} → {msg}{warning_text}")
+                logging.info(f"{status} {basename:<20} → {msg}")
             else:
                 failed += 1
                 total_failed += 1

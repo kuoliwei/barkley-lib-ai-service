@@ -76,7 +76,7 @@ def _center(points):
 
 def is_sitting_pose(person_keypoints, verbose=False, return_debug=False):
     """
-    判斷一個人是否坐著 - 俯視角版本
+    判斷一個人的姿態狀態 - 俯視角版本
 
     參數：
         person_keypoints: dict，包含 keypoints 列表
@@ -85,8 +85,14 @@ def is_sitting_pose(person_keypoints, verbose=False, return_debug=False):
         return_debug: bool，是否返回調試信息
 
     返回：
-        如果 return_debug=True：返回 (bool, dict)
-        否則：返回 bool
+        如果 return_debug=True：返回 (str, dict) 狀態和調試信息
+        否則：返回 str (狀態字串)
+
+    狀態值：
+        - "sitting" — 坐著
+        - "not sitting" — 站著或其他姿態
+        - "insufficient upper body confidence" — 上半身信心度不足（頭部或肩膀 < 0.5）
+        - "insufficient lower body confidence" — 下半身信心度不足
     """
     debug_info = {
         "features": {},
@@ -95,14 +101,14 @@ def is_sitting_pose(person_keypoints, verbose=False, return_debug=False):
         "reason": None
     }
 
-    def _fail(reason):
-        debug_info["result"] = False
+    def _fail(status, reason):
+        debug_info["result"] = status
         debug_info["reason"] = reason
         if verbose:
-            print(f"Result: NOT SITTING ({reason})")
+            print(f"Status: {status} ({reason})")
         if return_debug:
-            return False, debug_info
-        return False
+            return status, debug_info
+        return status
 
     # ---- 提取關鍵點（過濾無效點：(0,0) 或低置信度） ----
     kps = {}
@@ -122,7 +128,20 @@ def is_sitting_pose(person_keypoints, verbose=False, return_debug=False):
     except (KeyError, TypeError):
         return _fail("Invalid keypoint format")
 
-    # ---- 檢查下半身信心度：若過半低於 0.5，則判定為 NOT SITTING ----
+    # ---- 檢查上半身信心度（頭部 + 肩膀）----
+    # 頭部關鍵點
+    head_parts = ['nose', 'left_eye', 'right_eye', 'left_ear', 'right_ear']
+    head_low_conf = sum(1 for part in head_parts if all_kps_with_conf.get(part, 0) < 0.5)
+
+    # 肩膀關鍵點
+    shoulder_parts = ['left_shoulder', 'right_shoulder']
+    shoulder_low_conf = sum(1 for part in shoulder_parts if all_kps_with_conf.get(part, 0) < 0.5)
+
+    # 只要頭部或肩膀有任何信心度 < 0.5，就判為上半身信心度不足
+    if head_low_conf > 0 or shoulder_low_conf > 0:
+        return _fail("insufficient upper body confidence", f"上半身信心度不足 (頭部低信心:{head_low_conf}, 肩膀低信心:{shoulder_low_conf})")
+
+    # ---- 檢查下半身信心度：若過半低於 0.5，則返回對應狀態 ----
     lower_body_parts = ['left_hip', 'right_hip', 'left_knee', 'right_knee', 'left_ankle', 'right_ankle']
     low_conf_count = sum(1 for part in lower_body_parts if all_kps_with_conf.get(part, 0) < 0.5)
     if low_conf_count > len(lower_body_parts) / 2:
@@ -131,13 +150,7 @@ def is_sitting_pose(person_keypoints, verbose=False, return_debug=False):
             "shoulder_width": None,
             "lower_body_confidence": f"{low_conf_count}/{len(lower_body_parts)} 低於 0.5",
         }
-        debug_info["result"] = False
-        debug_info["reason"] = "Not Sitting (下半身信心度過低)"
-        if verbose:
-            print(f"下半身信心度過低: {low_conf_count}/{len(lower_body_parts)} < 0.5 → NOT SITTING")
-        if return_debug:
-            return False, debug_info
-        return False
+        return _fail("insufficient lower body confidence", "下半身信心度不足")
 
     # ---- 身體尺度：優先用肩寬（俯視時肩膀最不會被遮擋），其次髖寬 ----
     shoulder_width = None
@@ -183,13 +196,14 @@ def is_sitting_pose(person_keypoints, verbose=False, return_debug=False):
             "score": None,
             "fallback": "proximity",
         }
-        debug_info["result"] = False
-        debug_info["reason"] = f"Standing (肩寬為坐姿基準的 {proximity_ratio:.2f} 倍，靠近相機=站立)"
+        status = "not sitting"
+        debug_info["result"] = status
+        debug_info["reason"] = f"not sitting (肩寬為坐姿基準的 {proximity_ratio:.2f} 倍，靠近相機=站立)"
         if verbose:
-            print(f"近距檢查: 肩寬 {shoulder_width:.1f} / 基準 {debug_info['features']['scale_baseline']} = {proximity_ratio:.2f} (> {PROXIMITY_RATIO_BOUNDARY}) → STANDING")
+            print(f"近距檢查: 肩寬 {shoulder_width:.1f} / 基準 {debug_info['features']['scale_baseline']} = {proximity_ratio:.2f} (> {PROXIMITY_RATIO_BOUNDARY}) → NOT SITTING")
         if return_debug:
-            return False, debug_info
-        return False
+            return status, debug_info
+        return status
 
     # 用滑動視窗中位數作為穩定的身體尺度（避免單幀肩寬抖動污染比值）
     # 雙向寫入閘門：只有比值在 [SCALE_GATE_LOW, PROXIMITY_RATIO_BOUNDARY] 內
@@ -206,7 +220,7 @@ def is_sitting_pose(person_keypoints, verbose=False, return_debug=False):
         body_scale = hip_width
 
     if not body_scale or body_scale < 1:
-        return _fail("無法取得身體尺度（肩膀與髖部關鍵點皆不可用）")
+        return _fail("insufficient upper body confidence", "無法取得身體尺度（肩膀關鍵點皆不可用）")
 
     # ---- 軀幹投影比：肩-髖中心距離 / 身體尺度 ----
     # 站立（軀幹垂直）→ 肩髖投影重疊，比值小
@@ -232,6 +246,7 @@ def is_sitting_pose(person_keypoints, verbose=False, return_debug=False):
         # 用軀幹投影比區分兩者
         if torso_ratio is not None:
             is_sitting = torso_ratio > TORSO_RATIO_BOUNDARY
+            status = "sitting" if is_sitting else "not sitting"
             debug_info["features"] = {
                 "body_scale": round(body_scale, 2),
                 "shoulder_width": round(shoulder_width, 2) if shoulder_width else None,
@@ -242,16 +257,15 @@ def is_sitting_pose(person_keypoints, verbose=False, return_debug=False):
                 "score": None,
                 "fallback": "torso_ratio",
             }
-            debug_info["result"] = is_sitting
-            debug_info["reason"] = ("Sitting (下肢被遮擋，但軀幹傾斜=彎腰坐姿)" if is_sitting
-                                    else "Standing (下肢不可見且軀幹投影小=站立)")
+            debug_info["result"] = status
+            debug_info["reason"] = status
             if verbose:
                 print(f"下肢不可見，改用軀幹投影比判斷: {torso_ratio:.3f} (邊界 {TORSO_RATIO_BOUNDARY})")
-                print(f"Result: {'SITTING' if is_sitting else 'STANDING'}")
+                print(f"Status: {status}")
             if return_debug:
-                return is_sitting, debug_info
-            return is_sitting
-        return _fail("下肢與軀幹關鍵點皆不足，無法判斷")
+                return status, debug_info
+            return status
+        return _fail("insufficient lower body confidence", "下肢與軀幹關鍵點皆不足，無法判斷")
 
     thigh_ratio = (sum(thigh_lengths.values()) / len(thigh_lengths)) / body_scale
 
@@ -311,15 +325,16 @@ def is_sitting_pose(person_keypoints, verbose=False, return_debug=False):
         if debug_info["missing_keypoints"]:
             print(f"不可用關鍵點: {debug_info['missing_keypoints']}")
         print(f"加權總分: {score:.3f}  (>0 → 坐姿)")
-        print(f"Result: {'SITTING' if is_sitting else 'STANDING'}")
+        print(f"Status: {'sitting' if is_sitting else 'not sitting'}")
         print("=" * 60)
 
-    debug_info["result"] = is_sitting
-    debug_info["reason"] = "Sitting" if is_sitting else "Standing"
+    status = "sitting" if is_sitting else "not sitting"
+    debug_info["result"] = status
+    debug_info["reason"] = status
 
     if return_debug:
-        return is_sitting, debug_info
-    return is_sitting
+        return status, debug_info
+    return status
 
 
 def analyze_pose_json(json_file_path):

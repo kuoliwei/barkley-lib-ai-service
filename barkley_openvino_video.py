@@ -1,3 +1,32 @@
+"""
+影片坐姿分析工具 - 逐幀姿態判定
+
+使用說明：
+=========
+
+基本用法（每5秒擷取1幀，不存檔）：
+  python barkley_openvino_video.py "C:\\path\\to\\video.mp4"
+
+指定輸出資料夾（存檔 JSON + PNG）：
+  python barkley_openvino_video.py "C:\\path\\to\\video.mp4" --output output_folder
+
+自訂擷取間隔（例如每10秒擷取1幀）：
+  python barkley_openvino_video.py "C:\\path\\to\\video.mp4" --interval 10
+
+完整範例（每1秒擷取1幀，存檔到 Jolin 資料夾）：
+  python barkley_openvino_video.py "C:\\Users\\liweikuo\\Pictures\\Camera Roll\\WIN_20260715_16_45_51_Pro.mp4" --output Jolin --interval 1
+
+輸出狀態說明：
+  - sitting: 坐著
+  - not sitting: 站著或其他姿態
+  - insufficient upper body confidence: 上半身信心度不足
+  - insufficient lower body confidence: 下半身信心度不足
+
+JSON 檔案位置：
+  輸出資料夾會包含 001.json, 002.json, ... 等檔案
+  每個 JSON 包含 keypoints、sitting_detection 等資訊
+"""
+
 import os
 # 設定 OpenVINO 優先使用 GPU
 os.environ['OPENVINO_DEVICE_PRIORITIES'] = 'GPU,CPU'
@@ -167,22 +196,25 @@ class BarkleyVideoAnalyzer:
 
         num_persons = len(keypoints_data)
 
-        # 坐姿判斷
-        is_sitting_list = []
+        # 姿態判斷
+        status_list = []
         for person in keypoints_data:
-            is_sitting, sit_debug = is_sitting_pose(person, verbose=False, return_debug=True)
+            status, sit_debug = is_sitting_pose(person, verbose=False, return_debug=True)
             person["sitting_detection"] = {
-                "is_sitting": is_sitting,
+                "status": status,
                 "debug": sit_debug
             }
-            is_sitting_list.append(is_sitting)
+            status_list.append(status)
 
-        # 時間平滑
-        is_sitting_smoothed = None
-        if is_sitting_list:
-            raw_sitting = any(is_sitting_list)
-            self.sitting_history.append(raw_sitting)
-            is_sitting_smoothed = sum(self.sitting_history) * 2 > len(self.sitting_history)
+        # 時間平滑（只針對 "sitting" 和 "not sitting" 做平滑）
+        status_smoothed = None
+        if status_list:
+            valid_statuses = [s for s in status_list if s in ["sitting", "not sitting"]]
+            if valid_statuses:
+                raw_sitting = any(s == "sitting" for s in valid_statuses)
+                self.sitting_history.append(raw_sitting)
+                is_sitting_smoothed = sum(self.sitting_history) * 2 > len(self.sitting_history)
+                status_smoothed = "sitting" if is_sitting_smoothed else "not sitting"
 
         # 書籍分類（簡化版，直接用 CPU 推論）
         book_class = 0
@@ -191,8 +223,8 @@ class BarkleyVideoAnalyzer:
         return {
             "num_persons": num_persons,
             "keypoints": keypoints_data,
-            "is_sitting": is_sitting_list,
-            "is_sitting_smoothed": is_sitting_smoothed,
+            "status_list": status_list,
+            "status_smoothed": status_smoothed,
             "pose_roi_image": pose_roi.copy() if pose_roi is not None else None
         }, yolo_result
 
@@ -218,9 +250,9 @@ def save_pose_json(keypoints_data, output_dir, roi_image=None):
     for person in keypoints_data:
         person_copy = person.copy()
         if "sitting_detection" not in person_copy:
-            is_sitting, debug_info = is_sitting_pose(person, verbose=False, return_debug=True)
+            status, debug_info = is_sitting_pose(person, verbose=False, return_debug=True)
             person_copy["sitting_detection"] = {
-                "is_sitting": is_sitting,
+                "status": status,
                 "debug": debug_info
             }
         persons_with_debug.append(person_copy)
@@ -236,26 +268,19 @@ def save_pose_json(keypoints_data, output_dir, roi_image=None):
     with open(filename, 'w', encoding='utf-8') as f:
         json.dump(json_data, f, indent=2, ensure_ascii=False)
 
-    # 存 ROI 影像
+    # 存 ROI 影像（不畫關鍵點）
     if roi_image is not None:
-        img = roi_image.copy()
-        for person in keypoints_data:
-            for kp in person["keypoints"]:
-                x, y = int(kp["x"]), int(kp["y"])
-                conf = kp.get("confidence", 1.0)
-                color = (0, 255, 0) if conf > 0.5 else (0, 165, 255)
-                cv2.circle(img, (x, y), 3, color, -1)
-
         img_path = os.path.join(output_dir, f"{next_num:03d}.png")
-        cv2.imwrite(img_path, img)
+        cv2.imwrite(img_path, roi_image)
 
     return next_num
 
 
 def main():
-    parser = argparse.ArgumentParser(description="影片逐幀坐姿分析")
+    parser = argparse.ArgumentParser(description="影片坐姿分析（每5秒擷取1幀）")
     parser.add_argument("video_path", help="影片檔的絕對路徑")
     parser.add_argument("--output", default=None, help="輸出資料夾名稱（相對於根目錄）")
+    parser.add_argument("--interval", type=int, default=5, help="擷取間隔（秒，預設5秒）")
 
     args = parser.parse_args()
 
@@ -280,6 +305,7 @@ def main():
     total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
 
     logging.info(f"影片資訊：{width}×{height}@{fps}fps，共 {total_frames} 幀")
+    logging.info(f"擷取設定：每 {args.interval} 秒取 1 幀")
 
     # 初始化分析器
     analyzer = BarkleyVideoAnalyzer()
@@ -292,6 +318,8 @@ def main():
     logging.info(f"✓ 分析器初始化完成")
     logging.info("")
 
+    # 計算擷取間隔（幀數）
+    sample_interval_frames = int(fps * args.interval)
     frame_count = 0
     next_file_num = 1
 
@@ -303,31 +331,34 @@ def main():
 
             frame_count += 1
 
-            # 逐幀推論
+            # 只在指定間隔做推論
+            if (frame_count - 1) % sample_interval_frames != 0:
+                continue
+
+            # 推論
             book_data, yolo_result = analyzer.process_frame(frame, pose_roi_x, pose_roi_y, pose_roi_size)
 
             if book_data is not None:
+                # 計算時間戳
+                timestamp_sec = (frame_count - 1) / fps
+                minutes = int(timestamp_sec // 60)
+                seconds = int(timestamp_sec % 60)
+                time_str = f"{minutes:02d}:{seconds:02d}"
+
                 # 簡化 logging
-                sitting_str = ""
-                if book_data['is_sitting']:
-                    sitting_results = []
-                    for i, is_sitting in enumerate(book_data['is_sitting']):
-                        status = "sitting" if is_sitting else "not_sitting"
-                        sitting_results.append(f"P{i}:{status}")
-                    sitting_str = " | Sitting: " + ", ".join(sitting_results)
-                    smoothed = book_data.get('is_sitting_smoothed')
+                status_str = ""
+                if book_data['status_list']:
+                    status_results = []
+                    for i, status in enumerate(book_data['status_list']):
+                        status_results.append(f"P{i}:{status}")
+                    status_str = " | Status: " + ", ".join(status_results)
+                    smoothed = book_data.get('status_smoothed')
                     if smoothed is not None:
-                        sitting_str += f" | Smoothed: {'sitting' if smoothed else 'not_sitting'}"
-
-                    # 檢查下半身信心度
-                    for i, person in enumerate(book_data['keypoints']):
-                        feats = person.get("sitting_detection", {}).get("debug", {}).get("features", {})
-                        if feats.get("lower_body_confidence"):
-                            sitting_str += f"  [P{i}: 下半身信心度過低]"
+                        status_str += f" | Smoothed: {smoothed}"
                 else:
-                    sitting_str = " | Sitting: N/A"
+                    status_str = " | Status: N/A"
 
-                log_msg = f"[Frame {frame_count:04d}] Sitting:{sitting_str}"
+                log_msg = f"[{time_str}] Pose:{status_str}"
                 logging.info(log_msg)
 
                 # 若指定輸出資料夾，存檔
